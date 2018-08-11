@@ -30,8 +30,6 @@ public class MainActivity extends AppCompatActivity {
     Cursor cursor;
 
     boolean mShowMustGoOn = false;
-    boolean mNoPicture = false;
-
     Timer mTimer;
 
     Handler mHandler = new Handler();
@@ -53,12 +51,9 @@ public class MainActivity extends AppCompatActivity {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-
                 getContentsInfo();
-
             } else {
                 requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUESST_CODE);
-                mNoPicture = true;
             }
         } else {
             getContentsInfo();
@@ -67,81 +62,98 @@ public class MainActivity extends AppCompatActivity {
 
         // 「進む」ボタンの処理
         mButtonGo = (Button) findViewById(R.id.go);
-        if (!mNoPicture) {
-            mButtonGo.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (!mShowMustGoOn) {
-                        if (cursor.moveToNext()) {
+        mButtonGo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mShowMustGoOn) {
+                    if (cursor.moveToNext()) {
 
-                            imageViewChanger();
+                        imageViewChanger();
 
-                        } else {
+                    } else {
 
-                            cursor.moveToFirst();
-                            imageViewChanger();
-
-                        }
+                        cursor.moveToFirst();
+                        imageViewChanger();
 
                     }
+
                 }
-            });
-        }
+            }
+
+        });
+
+
 
         // 「戻る」ボタンの処理
         mButtonBack = (Button) findViewById(R.id.back);
-        if (!mNoPicture) {
-            mButtonBack.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (!mShowMustGoOn) {
-                        if (cursor.moveToPrevious()) {
+        mButtonBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mShowMustGoOn) {
+                    if (cursor.moveToPrevious()) {
 
-                            imageViewChanger();
+                        imageViewChanger();
 
-                        } else {
+                    } else {
 
-                            cursor.moveToLast();
-                            imageViewChanger();
-
-                        }
-
+                        cursor.moveToLast();
+                        imageViewChanger();
                     }
                 }
-            });
-        }
+            }
+        });
+
 
         // 再生/停止ボタンの処理
         mButtonOnOff = (Button) findViewById(R.id.onof);
-        if (!mNoPicture) {
-            mButtonOnOff.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (!mShowMustGoOn) {
+        mButtonOnOff.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mShowMustGoOn) {
+                    mShowMustGoOn = true;
+                    mButtonOnOff.setText("停止");
 
-                        mShowMustGoOn = true;
-                        mButtonOnOff.setText("停止");
+                    mButtonBack.setEnabled(false);
+                    mButtonGo.setEnabled(false);
 
-                        startTimer();
+                    startTimer();
 
+                } else {
+                    mShowMustGoOn = false;
+                    mButtonOnOff.setText("再生");
 
-                    } else {
-                        mShowMustGoOn = false;
-                        mButtonOnOff.setText("再生");
+                    mButtonBack.setEnabled(true);
+                    mButtonGo.setEnabled(true);
 
-                        stopTimer();
+                    stopTimer();
 
-                        }
-                    }
+                }
+            }
+        });
 
-            });
+    }
+
+    protected void onRestart(){
+        super.onRestart();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                getContentsInfo();
+            } else {
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUESST_CODE);
+            }
+        } else {
+            getContentsInfo();
         }
     }
 
-    protected void onStop(){
-        if (!mNoPicture) {
-            super.onStop();
-            cursor.close();
+    protected void onDestroy(){
+        super.onDestroy();
+
+        if(cursor != null) {
+            if(!cursor.isClosed()) {
+                cursor.close();
+            }
         }
     }
 
@@ -150,9 +162,9 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case PERMISSION_REQUESST_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                        getContentsInfo();
-
+                    getContentsInfo();
+                } else {
+                    allButtonUnable();
                 }
                 break;
             default:
@@ -181,12 +193,10 @@ public class MainActivity extends AppCompatActivity {
         );
 
         if (cursor.moveToFirst()) {
-
             imageViewChanger();
-
         } else {
             cursor.close();
-            mNoPicture = true;
+            allButtonUnable();
         }
     }
 
@@ -210,7 +220,17 @@ public class MainActivity extends AppCompatActivity {
                         });
                     } else {
                         cursor.moveToFirst();
-                        imageViewChanger();
+
+                        fieldIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID);
+                        id = cursor.getLong(fieldIndex);
+                        imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
+                        mHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                mImageView.setImageURI(imageUri);
+                            }
+                        });
                     }
                 }
             }, 2000, 2000);
@@ -225,6 +245,13 @@ public class MainActivity extends AppCompatActivity {
             mTimer.cancel();
             mTimer = null;
         }
+    }
+
+
+    protected void allButtonUnable() {
+        mButtonGo.setEnabled(false);
+        mButtonBack.setEnabled(false);
+        mButtonOnOff.setEnabled(false);
     }
 
 }
